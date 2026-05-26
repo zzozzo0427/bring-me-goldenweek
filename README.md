@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# 【時空の歪み】ゴールデンウィーク快速列車 🚄📅
+> "Bring Me Golden Week!" - カレンダーを最速操作して、夢の大型連休へタイムリープ！
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+🔗 **Service URL:** [https://bring-me-goldenweek.vercel.app/](https://bring-me-goldenweek.vercel.app/)
 
-Currently, two official plugins are available:
+<br/>
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📌 概要 (Overview)
+「ゴールデンウィークが待ちきれない！」という全日本人の切実な願いを叶えるための、**タイムリープ型カレンダーUI操作ゲーム**です。
+一見普通のカレンダーに見えますが、意図的に操作を難しくした「クソUI（Kuso UI）」を採用しています。ユーザーは数々の理不尽なUIギミックを乗り越え、日付を操作してゴールデンウィークを強制的に引き寄せなければなりません。
 
-## React Compiler
+遊び心を取り入れつつ、Reactの複雑な状態管理（State Management）とイベントハンドリングのスキルを証明するためのポートフォリオプロジェクトです。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+<br/>
 
-## Expanding the ESLint configuration
+## 🎯 特徴 (Features)
+- **究極のKuso UI体験:** 直感に反する操作を要求するカレンダーギミック。
+- **複雑な状態管理:** 日付、月、曜日の整合性を保ちながら、トリッキーなUIアクションを処理するReact Stateロジック。
+- **タイムリープ演出:** ユーザーの操作によって時空（カレンダー）が歪み、目的の日付に到達した際の達成感。
+- **レスポンシブ対応:** PC/スマートフォン問わず、どこでも時空を歪ませることが可能。
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+<br/>
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠 技術スタック (Tech Stack)
+- **Frontend:** React, TypeScript, Vite
+- **Styling:** CSS3 / (여기에 Tailwind CSS나 Styled-components를 썼다면 추가해주세요)
+- **Deployment:** Vercel
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+<br/>
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📂 インストールと起動 (Installation & Run)
+ローカル環境でプロジェクトを動かす手順です。
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+```bash
+# 1. リポジトリのクローン
+$ git clone [https://github.com/zzozzo0427/bring-me-goldenweek.git](https://github.com/zzozzo0427/bring-me-goldenweek.git)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+# 2. ディレクトリへ移動
+$ cd bring-me-goldenweek
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+# 3. 依存関係のインストール
+$ npm install
+
+# 4. ローカルサーバーの起動
+$ npm run dev
