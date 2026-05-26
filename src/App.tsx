@@ -28,7 +28,7 @@ type Point = { x: number; y: number }
 
 const SUNSET_TRIGGER = 0.4
 const SUNSET_AUTO_FINISH = 0.9
-const DEV_CODE = 'develop'
+const DEV_CODE = 'dev'
 const NEXT_STAGE: Record<Stage, Stage> = {
   start: 'monday',
   monday: 'tuesday',
@@ -309,66 +309,44 @@ function App() {
             key="start"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.45 }}
-            className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-hidden"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-black px-8"
           >
-            <div className="absolute inset-0 bg-[#0c0c0e]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(239,68,68,0.18),transparent)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_80%_100%,rgba(99,102,241,0.12),transparent)]" />
-            <motion.div
-              className="absolute left-[10%] top-[20%] h-64 w-64 rounded-full bg-red-500/10 blur-3xl"
-              animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }}
-              transition={{ duration: 6, repeat: Infinity }}
-            />
-            <motion.div
-              className="absolute bottom-[15%] right-[12%] h-72 w-72 rounded-full bg-violet-500/10 blur-3xl"
-              animate={{ scale: [1.1, 1, 1.1] }}
-              transition={{ duration: 7, repeat: Infinity }}
-            />
-
-            <div className="relative z-10 flex max-w-4xl flex-col items-center px-8 text-center">
+            <div className="flex max-w-2xl flex-col items-center gap-10 text-center">
               <motion.p
-                initial={{ y: 12, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.1 }}
-                className="font-display text-sm font-semibold uppercase tracking-[0.4em] text-red-400/90"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.4, delay: 0.4, ease: 'easeOut' }}
+                className="text-lg leading-relaxed text-white md:text-2xl"
               >
-                Interactive Web Experience
+                ああ…来週はゴールデンウィークなのに、
               </motion.p>
-              <motion.h1
-                initial={{ y: 24, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2, type: 'spring', stiffness: 120 }}
-                className="font-display mt-6 text-6xl font-extrabold leading-[1.05] tracking-tight text-white md:text-8xl lg:text-9xl"
-              >
-                イライラ
-                <span className="block bg-gradient-to-r from-red-400 via-orange-300 to-amber-200 bg-clip-text text-transparent">
-                  ウィーク
-                </span>
-              </motion.h1>
               <motion.p
-                initial={{ y: 16, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.35 }}
-                className="mt-8 max-w-lg text-lg leading-relaxed text-zinc-400 md:text-xl"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.4, delay: 2, ease: 'easeOut' }}
+                className="text-lg leading-relaxed text-white md:text-2xl"
               >
-                壊れたUIで耐える7日間。ブラウザを全画面にして遊んでください。
+                今週が早く過ぎ去ってほしい！
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.4, delay: 3.6, ease: 'easeOut' }}
+                className="text-lg leading-relaxed text-white md:text-2xl"
+              >
+                え？これ何？
               </motion.p>
               <motion.button
                 type="button"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                whileHover={{
-                  scale: 1.04,
-                  boxShadow: '0 0 48px rgba(239,68,68,0.35)',
-                }}
-                whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1, delay: 5.2, ease: 'easeOut' }}
                 onClick={() => setCurrentStage('monday')}
-                className="font-display mt-12 rounded-full bg-gradient-to-r from-red-500 to-orange-500 px-14 py-5 text-lg font-bold text-white shadow-xl shadow-red-500/25"
+                className="mt-4 border border-white bg-transparent px-10 py-3 text-sm tracking-[0.2em] text-white transition-colors hover:bg-white/10 md:text-base"
               >
-                はじめる
+                見てみる
               </motion.button>
             </div>
           </motion.section>

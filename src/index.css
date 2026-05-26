@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 
 :root {
-  --font-sans: 'Noto Sans KR', system-ui, sans-serif;
-  --font-display: 'Outfit', 'Noto Sans KR', sans-serif;
+  --font-sans: 'Noto Sans JP', system-ui, sans-serif;
+  --font-display: 'Outfit', 'Noto Sans JP', sans-serif;
 }
 
 html,

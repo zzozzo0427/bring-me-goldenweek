@@ -83,7 +83,7 @@ export function EraserPenStage({ onComplete }: { onComplete: () => void }) {
     finishedRef.current = true
     setMonWriting(true)
     window.setTimeout(() => setEnding(true), 1800)
-    window.setTimeout(onComplete, 9400)
+    window.setTimeout(onComplete, 7200)
   }, [onComplete])
 
   const eraserCenter = useCallback((fallback: { x: number; y: number }) => {
@@ -351,18 +351,88 @@ export function EraserPenStage({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <motion.div
-        className="pointer-events-none absolute inset-0 z-[80] flex items-center justify-center bg-black"
+        className="pointer-events-none absolute inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden px-6"
         initial={false}
         animate={{ opacity: ending ? 1 : 0 }}
-        transition={{ duration: 0.95 }}
+        transition={{ duration: 0.85 }}
       >
-        <motion.p
-          className="px-8 text-center font-display text-2xl font-bold tracking-[0.08em] text-white md:text-4xl"
-          animate={{ opacity: ending ? 1 : 0, y: ending ? 0 : 20 }}
-          transition={{ delay: 0.25, duration: 0.7 }}
+        <motion.div
+          className="absolute inset-0"
+          initial={false}
+          animate={{
+            background: ending
+              ? 'radial-gradient(ellipse 80% 70% at 50% 40%, #fef08a 0%, #f472b6 35%, #818cf8 70%, #38bdf8 100%)'
+              : 'transparent',
+          }}
+          transition={{ duration: 1 }}
+        />
+
+        {ending &&
+          Array.from({ length: 48 }, (_, i) => (
+            <motion.span
+              key={i}
+              className="absolute block h-2 w-2 rounded-sm md:h-3 md:w-3"
+              style={{
+                left: `${(i * 41 + 7) % 100}%`,
+                backgroundColor: ['#fbbf24', '#f472b6', '#34d399', '#60a5fa', '#f87171'][i % 5],
+              }}
+              initial={{ y: '-10%', opacity: 0, rotate: 0 }}
+              animate={{
+                y: '110%',
+                opacity: [0, 1, 1, 0],
+                rotate: 360 + (i % 4) * 90,
+              }}
+              transition={{
+                duration: 2.8 + (i % 5) * 0.35,
+                repeat: Infinity,
+                delay: (i % 12) * 0.12,
+                ease: 'linear',
+              }}
+            />
+          ))}
+
+        {ending &&
+          Array.from({ length: 20 }, (_, i) => (
+            <motion.span
+              key={`spark-${i}`}
+              className="absolute text-xl md:text-2xl"
+              style={{
+                left: `${(i * 53 + 11) % 92}%`,
+                top: `${(i * 37 + 8) % 88}%`,
+              }}
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: [0, 1, 0], scale: [0.4, 1.2, 0.6] }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                delay: i * 0.15,
+              }}
+            >
+              ✨
+            </motion.span>
+          ))}
+
+        <motion.div
+          className="relative z-10 max-w-3xl text-center"
+          initial={false}
+          animate={{ opacity: ending ? 1 : 0, y: ending ? 0 : 24, scale: ending ? 1 : 0.96 }}
+          transition={{ delay: 0.35, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
         >
-          おめでとうございます... 地獄の月曜日が始まりました。
-        </motion.p>
+          <p className="font-display text-2xl font-extrabold leading-snug tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.25)] md:text-4xl md:leading-tight">
+            おめでとうございます！大成功！
+            <br />
+            ついに夢に見た「ゴールデンウィーク」が
+            始まりました！🥳🎉✨
+          </p>
+          <motion.p
+            className="mt-6 text-base text-white/90 md:text-lg"
+            initial={false}
+            animate={{ opacity: ending ? 1 : 0 }}
+            transition={{ delay: 1.1, duration: 0.8 }}
+          >
+            楽しい連休をお過ごしください。
+          </motion.p>
+        </motion.div>
       </motion.div>
     </motion.section>
   )

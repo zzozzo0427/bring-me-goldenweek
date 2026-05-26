@@ -71,11 +71,34 @@ export function playGiraffe() {
   tone(280, t + 0.22, 0.25, 'triangle', 0.06)
 }
 
-export function playRooster() {
+const KKOKIO_SRC = '/kkokio.mp3'
+let roosterAudio: HTMLAudioElement | null = null
+
+function playRoosterSynthetic() {
   const t = ac().currentTime
   const crow = [520, 680, 820, 620, 900, 750]
   crow.forEach((f, i) => {
     tone(f, t + i * 0.11, 0.14, 'square', 0.09)
     tone(f * 0.5, t + i * 0.11, 0.14, 'triangle', 0.06)
+  })
+}
+
+function getRoosterAudio() {
+  if (!roosterAudio) {
+    roosterAudio = new Audio(KKOKIO_SRC)
+    roosterAudio.preload = 'auto'
+  }
+  return roosterAudio
+}
+
+/** 금요일 꼬끼오 — public/kkokio.mp3 */
+export function playRooster(onEnded?: () => void) {
+  const audio = getRoosterAudio()
+  audio.currentTime = 0
+  audio.onended = () => onEnded?.()
+
+  void audio.play().catch(() => {
+    playRoosterSynthetic()
+    window.setTimeout(() => onEnded?.(), 900)
   })
 }

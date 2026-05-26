@@ -28,8 +28,9 @@ export function FridayStage({ onComplete }: { onComplete: () => void }) {
     finishedRef.current = true
     setVolume(100)
     setDawn(true)
-    playRooster()
-    window.setTimeout(onComplete, 1700)
+    playRooster(() => {
+      window.setTimeout(onComplete, 350)
+    })
   }, [onComplete])
 
   useEffect(() => {
