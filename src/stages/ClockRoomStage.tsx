@@ -87,49 +87,62 @@ export function ClockRoomStage({ onComplete }: { onComplete: () => void }) {
       transition={{ duration: 0.6 }}
       className="relative min-h-[100dvh] w-full overflow-hidden"
     >
-      {/* 밝은 파스텔 방 */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#fff5f8] via-[#ffe8f0] to-[#fce7f3]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_70%_20%,rgba(255,255,255,0.9),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_10%_15%,rgba(251,207,232,0.35),transparent)]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#f7f1e8] via-[#ece0cf] to-[#d8c8ad]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_72%_18%,rgba(255,252,244,0.86),transparent_62%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_45%_at_14%_88%,rgba(176,139,96,0.16),transparent_66%)]" />
+      <div className="absolute inset-x-0 top-[62%] h-px bg-[#bca98f]/55" />
 
-      {/* 바닥 */}
+      <header className="absolute left-0 right-0 top-0 z-40 px-8 py-6 md:px-14 md:py-8">
+        <h2 className="font-display text-2xl font-bold tracking-[0.2em] text-zinc-500/80 md:text-3xl">
+          THU
+        </h2>
+      </header>
+
       <div
-        className="absolute inset-x-0 bottom-0 h-[32vh] bg-gradient-to-t from-[#ffe4ec] via-[#fff0f5] to-transparent"
+        className="absolute inset-x-0 bottom-0 h-[38vh] bg-gradient-to-br from-[#d2b48c] via-[#c8a678] to-[#b8905d]"
         aria-hidden
       />
 
       <RoomFurniture />
 
-      {/* 왼쪽 위 구석 — 벽에 묻힌 작은 시계 */}
-      <div className="absolute left-[3%] top-[5%] z-20 sm:left-[4%] sm:top-[6%]">
+      <div className="absolute left-[6%] top-[15%] z-20 sm:left-[7%] sm:top-[16%]">
         <motion.svg
           ref={clockRef}
           viewBox="0 0 240 240"
-          className="relative h-[76px] w-[76px] touch-none select-none opacity-[0.88] sm:h-[84px] sm:w-[84px] md:h-[92px] md:w-[92px]"
+          className="relative h-[108px] w-[108px] touch-none select-none drop-shadow-2xl sm:h-[124px] sm:w-[124px] md:h-[140px] md:w-[140px]"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           style={{ cursor: done ? 'default' : 'grab' }}
-          aria-label="벽시계"
+          aria-label="Wall clock"
         >
           <defs>
-            <radialGradient id="clockFaceKawaii" cx="45%" cy="40%" r="60%">
-              <stop offset="0%" stopColor="#fffbfc" />
-              <stop offset="100%" stopColor="#fce7f3" />
+            <radialGradient id="clockFaceModern" cx="42%" cy="36%" r="68%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="76%" stopColor="#f4f1eb" />
+              <stop offset="100%" stopColor="#e4ded4" />
             </radialGradient>
+            <linearGradient id="clockFrameModern" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#faf8f2" />
+              <stop offset="44%" stopColor="#c9c4ba" />
+              <stop offset="100%" stopColor="#8f8b82" />
+            </linearGradient>
+            <filter id="handShadowModern" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="2" dy="3" stdDeviation="2" floodColor="#4b443c" floodOpacity="0.22" />
+            </filter>
           </defs>
+          <circle cx="120" cy="120" r="113" fill="url(#clockFrameModern)" />
+          <circle cx="120" cy="120" r="104" fill="#f7f5ef" />
+          <circle cx="120" cy="120" r="96" fill="url(#clockFaceModern)" stroke="#d5d0c7" strokeWidth="1.5" />
 
-          {/* 파스텔 프레임 — 벽과 비슷한 톤 */}
-          <circle cx="120" cy="120" r="112" fill="#fff5f8" stroke="#fbcfe8" strokeWidth="4" />
-          <circle cx="120" cy="120" r="100" fill="url(#clockFaceKawaii)" />
-
-          {Array.from({ length: 12 }, (_, i) => {
-            const a = (i * 30 * Math.PI) / 180
-            const x1 = 120 + 88 * Math.sin(a)
-            const y1 = 120 - 88 * Math.cos(a)
-            const x2 = 120 + 94 * Math.sin(a)
-            const y2 = 120 - 94 * Math.cos(a)
+          {Array.from({ length: 60 }, (_, i) => {
+            const a = (i * 6 * Math.PI) / 180
+            const major = i % 5 === 0
+            const x1 = 120 + (major ? 78 : 84) * Math.sin(a)
+            const y1 = 120 - (major ? 78 : 84) * Math.cos(a)
+            const x2 = 120 + 88 * Math.sin(a)
+            const y2 = 120 - 88 * Math.cos(a)
             return (
               <line
                 key={i}
@@ -137,10 +150,10 @@ export function ClockRoomStage({ onComplete }: { onComplete: () => void }) {
                 y1={y1}
                 x2={x2}
                 y2={y2}
-                stroke="#f9a8d4"
-                strokeWidth={i % 3 === 0 ? 2 : 1}
+                stroke={major ? '#6f6b61' : '#b8b1a6'}
+                strokeWidth={major ? 2.2 : 0.8}
                 strokeLinecap="round"
-                opacity="0.55"
+                opacity={major ? 0.78 : 0.48}
               />
             )
           })}
@@ -149,26 +162,34 @@ export function ClockRoomStage({ onComplete }: { onComplete: () => void }) {
             x1="120"
             y1="120"
             x2="120"
-            y2="52"
-            stroke="#fda4af"
-            strokeWidth="2"
+            y2="45"
+            stroke="#b8b1a6"
+            strokeWidth="1.2"
             strokeLinecap="round"
-            opacity="0.45"
+            opacity="0.25"
           />
 
-          <g transform={`rotate(${handDeg} 120 120)`}>
+          <g transform={`rotate(${handDeg} 120 120)`} filter="url(#handShadowModern)">
             <line
               x1="120"
               y1="120"
               x2="120"
-              y2="64"
-              stroke="#e879a9"
-              strokeWidth="5"
+              y2="54"
+              stroke="#2f302d"
+              strokeWidth="4.5"
               strokeLinecap="round"
-              opacity="0.75"
             />
-            <circle cx="120" cy="120" r="7" fill="#fbcfe8" />
-            <circle cx="120" cy="120" r="3.5" fill="#f9a8d4" />
+            <line
+              x1="120"
+              y1="120"
+              x2="165"
+              y2="120"
+              stroke="#56544f"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+            />
+            <circle cx="120" cy="120" r="8.5" fill="#2f302d" />
+            <circle cx="120" cy="120" r="3.5" fill="#d8c8ad" />
           </g>
         </motion.svg>
       </div>

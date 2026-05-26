@@ -10,27 +10,35 @@ import { Clouds } from './components/Clouds'
 import { Hill } from './components/Hill'
 import { Stars } from './components/Stars'
 import { ClockRoomStage } from './stages/ClockRoomStage'
-import { CalendarTearStage } from './stages/CalendarTearStage'
 import { EraserPenStage } from './stages/EraserPenStage'
 import { FridayStage } from './stages/FridayStage'
-import { SaturdayStage } from './stages/SaturdayStage'
+import { SchoolShadowStage } from './stages/SchoolShadowStage'
 import { ThursdayStage } from './stages/ThursdayStage'
 
 type Stage =
   | 'start'
   | 'monday'
   | 'tuesday'
-  | 'wednesday'
   | 'thursday'
   | 'clock'
   | 'friday'
-  | 'saturday'
-  | 'calendar'
+  | 'schoolShadow'
   | 'eraser'
 type Point = { x: number; y: number }
 
 const SUNSET_TRIGGER = 0.4
 const SUNSET_AUTO_FINISH = 0.9
+const DEV_CODE = 'develop'
+const NEXT_STAGE: Record<Stage, Stage> = {
+  start: 'monday',
+  monday: 'tuesday',
+  tuesday: 'thursday',
+  thursday: 'clock',
+  clock: 'friday',
+  friday: 'schoolShadow',
+  schoolShadow: 'eraser',
+  eraser: 'monday',
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -98,38 +106,6 @@ function StageHeader({ label }: { label: string }) {
   )
 }
 
-function WednesdayBridge({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    const t = window.setTimeout(onDone, 1600)
-    return () => clearTimeout(t)
-  }, [onDone])
-
-  return (
-    <motion.section
-      key="wednesday"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.6 }}
-      className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-indigo-950/80 to-slate-950" />
-      <Stars opacity={1} />
-      <motion.div
-        className="absolute left-1/2 top-[18%] -translate-x-1/2"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.15 }}
-      >
-        <MoonOrb size="lg" />
-      </motion.div>
-      <h2 className="relative z-10 font-display text-7xl font-extrabold tracking-[0.15em] text-white md:text-9xl">
-        WED
-      </h2>
-    </motion.section>
-  )
-}
-
 function TuesdayStage({ onComplete }: { onComplete: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 1280, h: 720 })
@@ -151,7 +127,9 @@ function TuesdayStage({ onComplete }: { onComplete: () => void }) {
     return () => observer.disconnect()
   }, [])
 
-  progressRef.current = progress
+  useEffect(() => {
+    progressRef.current = progress
+  }, [progress])
 
   const sunArc = sunPath(size)
   const moonArc = moonPath(size)
@@ -278,7 +256,7 @@ function TuesdayStage({ onComplete }: { onComplete: () => void }) {
         onPan={handlePan}
         onPanEnd={handlePanEnd}
         whileTap={locked ? undefined : { scale: 0.92 }}
-        aria-label="태양 — 궤도를 따라 드래그해서 해지게 만들기"
+        aria-label="Sun - drag along the orbit"
       >
         <motion.div
           animate={{ rotate: 360 }}
@@ -302,6 +280,26 @@ function TuesdayStage({ onComplete }: { onComplete: () => void }) {
 
 function App() {
   const [currentStage, setCurrentStage] = useState<Stage>('start')
+  const devBufferRef = useRef('')
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key.length !== 1) return
+
+      devBufferRef.current = `${devBufferRef.current}${event.key.toLowerCase()}`.slice(
+        -DEV_CODE.length,
+      )
+
+      if (devBufferRef.current === DEV_CODE) {
+        devBufferRef.current = ''
+        setCurrentStage((stage) => NEXT_STAGE[stage])
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   return (
     <div className="min-h-[100dvh] w-full">
@@ -344,9 +342,9 @@ function App() {
                 transition={{ delay: 0.2, type: 'spring', stiffness: 120 }}
                 className="font-display mt-6 text-6xl font-extrabold leading-[1.05] tracking-tight text-white md:text-8xl lg:text-9xl"
               >
-                킹받는
+                イライラ
                 <span className="block bg-gradient-to-r from-red-400 via-orange-300 to-amber-200 bg-clip-text text-transparent">
-                  일주일
+                  ウィーク
                 </span>
               </motion.h1>
               <motion.p
@@ -355,7 +353,7 @@ function App() {
                 transition={{ delay: 0.35 }}
                 className="mt-8 max-w-lg text-lg leading-relaxed text-zinc-400 md:text-xl"
               >
-                망한 UI로 버티는 7일. 브라우저 전체 화면에서 플레이하세요.
+                壊れたUIで耐える7日間。ブラウザを全画面にして遊んでください。
               </motion.p>
               <motion.button
                 type="button"
@@ -370,7 +368,7 @@ function App() {
                 onClick={() => setCurrentStage('monday')}
                 className="font-display mt-12 rounded-full bg-gradient-to-r from-red-500 to-orange-500 px-14 py-5 text-lg font-bold text-white shadow-xl shadow-red-500/25"
               >
-                시작하기
+                はじめる
               </motion.button>
             </div>
           </motion.section>
@@ -409,11 +407,7 @@ function App() {
         )}
 
         {currentStage === 'tuesday' && (
-          <TuesdayStage onComplete={() => setCurrentStage('wednesday')} />
-        )}
-
-        {currentStage === 'wednesday' && (
-          <WednesdayBridge onDone={() => setCurrentStage('thursday')} />
+          <TuesdayStage onComplete={() => setCurrentStage('thursday')} />
         )}
 
         {currentStage === 'thursday' && (
@@ -425,18 +419,11 @@ function App() {
         )}
 
         {currentStage === 'friday' && (
-          <FridayStage onComplete={() => setCurrentStage('saturday')} />
+          <FridayStage onComplete={() => setCurrentStage('schoolShadow')} />
         )}
 
-        {currentStage === 'saturday' && (
-          <SaturdayStage onDone={() => setCurrentStage('calendar')} />
-        )}
-
-        {currentStage === 'calendar' && (
-          <CalendarTearStage
-            skipIntro
-            onComplete={() => setCurrentStage('eraser')}
-          />
+        {currentStage === 'schoolShadow' && (
+          <SchoolShadowStage onComplete={() => setCurrentStage('eraser')} />
         )}
 
         {currentStage === 'eraser' && (

@@ -110,7 +110,7 @@ export function CalendarTearStage({
       exit={{ opacity: 0 }}
       className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden"
     >
-      {/* 할머니 집 분위기 */}
+      {/* Warm old house mood */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#3d2e24] via-[#4a382c] to-[#2a2018]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_30%,rgba(251,191,36,0.08),transparent)]" />
 
@@ -147,13 +147,13 @@ export function CalendarTearStage({
               transition={{ type: 'spring', stiffness: 120, damping: 22 }}
               className="flex flex-col items-center"
             >
-              {/* 열린 서랍 */}
+              {/* Open drawer */}
               <div className="relative w-full max-w-sm">
                 <div className="rounded-lg bg-[#5c4636] p-3 shadow-inner">
                   <div className="min-h-[320px] rounded-md bg-[#3d2e24] p-6 shadow-inner md:min-h-[360px]">
-                    {/* 일력 본체 */}
+                    {/* Calendar body */}
                     <div className="relative mx-auto w-[200px] md:w-[220px]">
-                      {/* 아래 고정 층 — 일요일 */}
+                      {/* Fixed bottom layer - Sunday */}
                       <div className="relative rounded-sm border border-amber-900/20 bg-[#fef9ef] px-4 py-8 shadow-md">
                         <p className="text-center font-display text-xs text-amber-800/50">
                           1997
@@ -163,7 +163,7 @@ export function CalendarTearStage({
                         </p>
                       </div>
 
-                      {/* 찢기 전 상단 시트 — 토요일 */}
+                      {/* Top sheet before tearing - Saturday */}
                       <AnimatePresence>
                         {phase === 'tear' && (
                           <motion.div
@@ -171,7 +171,7 @@ export function CalendarTearStage({
                             className="absolute inset-x-0 top-0 z-20 overflow-hidden rounded-sm border border-amber-900/15 bg-[#fffdf8] shadow-lg"
                             style={{ height: TEAR_DISTANCE + 80 }}
                           >
-                            {/* 찢긴 흔적 */}
+                            {/* Torn edge */}
                             {partialTear > 0 && failFlash && (
                               <div
                                 className="absolute inset-x-0 z-10 border-b-2 border-dashed border-amber-900/30 bg-amber-50/50"
@@ -212,7 +212,7 @@ export function CalendarTearStage({
                               </p>
                             </motion.div>
 
-                            {/* 스카치 테이프 */}
+                            {/* Tape */}
                             <AnimatePresence>
                               {showTape && (
                                 <motion.div

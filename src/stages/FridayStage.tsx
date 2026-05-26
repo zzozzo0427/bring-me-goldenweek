@@ -1,189 +1,293 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  playElephant,
-  playGiraffe,
-  playLion,
-  playPenguin,
-  playRooster,
-} from '../utils/zooSounds'
+import { playRooster } from '../utils/zooSounds'
 
-type AnimalId = 'elephant' | 'lion' | 'giraffe' | 'penguin' | 'rooster'
+const GRAVITY_DROP_PER_TICK = 2.6
+const GRAVITY_TICK_MS = 100
 
-const ANIMALS: {
-  id: AnimalId
-  emoji: string
-  label: string
-  className: string
-}[] = [
-  { id: 'elephant', emoji: '🐘', label: 'animal', className: 'left-[10%] top-[11%]' },
-  { id: 'lion', emoji: '🦁', label: 'animal', className: 'right-[10%] top-[11%]' },
-  { id: 'giraffe', emoji: '🦒', label: 'animal', className: 'left-1/2 top-[42%] -translate-x-1/2' },
-  { id: 'penguin', emoji: '🐧', label: 'animal', className: 'left-[10%] bottom-[14%]' },
-  { id: 'rooster', emoji: '🐔', label: 'animal', className: 'right-[10%] bottom-[14%]' },
-]
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
 
-const SOUNDS: Record<AnimalId, () => void> = {
-  lion: playLion,
-  elephant: playElephant,
-  giraffe: playGiraffe,
-  penguin: playPenguin,
-  rooster: playRooster,
+function volumeFromPointer(clientY: number, rect: DOMRect) {
+  const raw = 100 - ((clientY - rect.top) / rect.height) * 100
+  return clamp(raw, 0, 100)
 }
 
 export function FridayStage({ onComplete }: { onComplete: () => void }) {
-  const [dawn, setDawn] = useState(false)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
   const finishedRef = useRef(false)
+  const [volume, setVolume] = useState(0)
+  const [sliderOpen, setSliderOpen] = useState(false)
+  const [snore, setSnore] = useState(0)
+  const [dawn, setDawn] = useState(false)
 
-  const onAnimal = useCallback(
-    (id: AnimalId) => {
-      SOUNDS[id]()
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    setVolume(100)
+    setDawn(true)
+    playRooster()
+    window.setTimeout(onComplete, 1700)
+  }, [onComplete])
 
-      if (id === 'rooster' && !finishedRef.current) {
-        finishedRef.current = true
-        setDawn(true)
-        window.setTimeout(onComplete, 2400)
-      }
-    },
-    [onComplete],
-  )
+  useEffect(() => {
+    if (finishedRef.current) return
+    const timer = window.setInterval(() => {
+      setVolume((current) => {
+        if (current >= 100) return current
+        return Math.max(0, current - GRAVITY_DROP_PER_TICK)
+      })
+    }, GRAVITY_TICK_MS)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (volume >= 100) finish()
+  }, [finish, volume])
+
+  const setVolumeFromClientY = useCallback((clientY: number) => {
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect || finishedRef.current) return
+    setVolume(volumeFromPointer(clientY, rect))
+  }, [])
+
+  const onTrackPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (finishedRef.current) return
+    draggingRef.current = true
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setVolumeFromClientY(event.clientY)
+  }, [setVolumeFromClientY])
+
+  const onTrackPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current || finishedRef.current) return
+    setVolumeFromClientY(event.clientY)
+  }, [setVolumeFromClientY])
+
+  const onTrackPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    draggingRef.current = false
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }, [])
+
+  const pokeRooster = useCallback(() => {
+    if (finishedRef.current) return
+    setSliderOpen(true)
+    setSnore((current) => current + 1)
+  }, [])
+
+  const roundedVolume = Math.round(volume)
 
   return (
     <motion.section
-      key="friday-zoo"
+      key="friday-gravity-rooster"
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{
+        opacity: 1,
+        x: dawn ? [0, -10, 12, -7, 8, 0] : 0,
+      }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: dawn ? 0.55 : 0.5 }}
       className="relative min-h-[100dvh] w-full overflow-hidden"
     >
       <motion.div
         className="absolute inset-0"
         animate={{
           background: dawn
-            ? 'linear-gradient(180deg, #93c5fd 0%, #fde68a 50%, #86efac 100%)'
-            : 'linear-gradient(180deg, #1e3a5f 0%, #334155 50%, #14532d 100%)',
+            ? 'linear-gradient(180deg, #93c5fd 0%, #fde68a 48%, #86efac 100%)'
+            : 'linear-gradient(180deg, #06111f 0%, #172554 46%, #052e16 100%)',
         }}
-        transition={{ duration: 1.3, ease: 'easeInOut' }}
+        transition={{ duration: 0.8, ease: 'easeOut' }}
       />
 
-      {/* 탑뷰 잔디 */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,#4ade80_0%,transparent_40%),radial-gradient(circle_at_70%_60%,#22c55e_0%,transparent_35%)] opacity-60" />
+      <header className="absolute left-0 right-0 top-0 z-40 px-8 py-6 md:px-14 md:py-8">
+        <h2 className="font-display text-2xl font-bold tracking-[0.2em] text-white/80 md:text-3xl">
+          FRI
+        </h2>
+      </header>
 
-      {/* 꾸불꾸불한 길 */}
+      <motion.div
+        className="absolute left-[8%] top-[10%] h-20 w-20 rounded-full bg-amber-200 shadow-[0_0_80px_rgba(251,191,36,0.75)] md:h-28 md:w-28"
+        initial={false}
+        animate={{
+          y: dawn ? 0 : 160,
+          opacity: dawn ? 1 : 0,
+          scale: dawn ? 1 : 0.72,
+        }}
+        transition={{ duration: 0.9, ease: 'easeOut' }}
+      />
+
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_26%,rgba(34,197,94,0.32)_0%,transparent_28%),radial-gradient(circle_at_70%_42%,rgba(22,163,74,0.25)_0%,transparent_32%)] opacity-80" />
+      <div className="absolute inset-x-0 bottom-0 h-[34%] bg-gradient-to-b from-emerald-950/25 to-emerald-950/85" />
+
       <svg
-        className="absolute inset-0 h-full w-full"
-        viewBox="0 0 1000 1000"
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 1000 700"
         preserveAspectRatio="none"
         aria-hidden
       >
-        <path
-          d="M 120,120 
-             C 200,180 280,220 380,280
-             C 480,340 520,400 500,480
-             C 480,560 420,620 350,680
-             C 280,740 200,800 150,850
-             M 880,120
-             C 800,200 720,260 620,320
-             C 520,380 500,440 500,500
-             C 500,560 560,640 650,720
-             C 740,800 820,830 880,860"
-          fill="none"
-          stroke="#d6c4a8"
-          strokeWidth="52"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.85"
-        />
-        <path
-          d="M 120,120 
-             C 200,180 280,220 380,280
-             C 480,340 520,400 500,480
-             C 480,560 420,620 350,680
-             C 280,740 200,800 150,850
-             M 880,120
-             C 800,200 720,260 620,320
-             C 520,380 500,440 500,500
-             C 500,560 560,640 650,720
-             C 740,800 820,830 880,860"
-          fill="none"
-          stroke="#e8dcc8"
-          strokeWidth="36"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {/* 중앙 연결 */}
-        <path
-          d="M 500,480 Q 540,520 500,560 Q 460,600 500,640"
-          fill="none"
-          stroke="#e8dcc8"
-          strokeWidth="36"
-          strokeLinecap="round"
-        />
+        <defs>
+          <linearGradient id="fenceWood" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#7c4a2c" />
+            <stop offset="100%" stopColor="#4a2d1d" />
+          </linearGradient>
+        </defs>
+        {Array.from({ length: 14 }, (_, i) => (
+          <path
+            key={i}
+            d={`M${i * 78 - 20} 455v180`}
+            stroke="url(#fenceWood)"
+            strokeWidth="18"
+            strokeLinecap="round"
+            opacity="0.88"
+          />
+        ))}
+        <path d="M-20 496H1020M-20 565H1020" stroke="#6b3f27" strokeWidth="20" strokeLinecap="round" opacity="0.9" />
+        <path d="M80 170c-34 78-28 172 26 258" stroke="#12341f" strokeWidth="32" strokeLinecap="round" />
+        <path d="M78 160c-72 34-88 88-42 140 60-18 86-66 42-140z" fill="#14532d" />
+        <path d="M850 132c-42 98-34 216 36 322" stroke="#12341f" strokeWidth="34" strokeLinecap="round" />
+        <path d="M850 122c-88 42-108 106-52 168 74-22 106-80 52-168z" fill="#166534" />
+        <path d="M710 206c-28 76-22 152 28 222" stroke="#12341f" strokeWidth="24" strokeLinecap="round" />
+        <path d="M710 194c-62 28-78 76-40 122 54-14 80-58 40-122z" fill="#15803d" />
       </svg>
 
-      {/* 울타리·나무 장식 */}
-      {[
-        { l: '4%', t: '40%' },
-        { l: '92%', t: '35%' },
-        { l: '48%', t: '8%' },
-        { l: '45%', t: '88%' },
-      ].map((t, i) => (
-        <div
-          key={i}
-          className="absolute text-2xl opacity-40"
-          style={{ left: t.l, top: t.t }}
-          aria-hidden
-        >
-          🌳
-        </div>
-      ))}
+      <div className="pointer-events-none absolute left-1/2 top-[16%] z-20 w-[min(82vw,620px)] -translate-x-1/2 text-center">
+        <p className="rounded-full border border-white/12 bg-black/24 px-6 py-3 font-display text-sm font-bold tracking-[0.08em] text-white/86 shadow-xl backdrop-blur md:text-base">
+          ニワトリを起こして朝を迎えましょう
+        </p>
+      </div>
 
-      {/* 동물 */}
-      {ANIMALS.map((a) => (
-        <motion.button
-          key={a.id}
-          type="button"
-          onClick={() => onAnimal(a.id)}
-          disabled={dawn && a.id === 'rooster'}
-          className={`absolute z-20 flex h-20 w-20 items-center justify-center rounded-2xl bg-green-800/25 text-5xl shadow-lg backdrop-blur-[2px] transition-shadow hover:bg-green-800/35 md:h-24 md:w-24 md:text-6xl ${a.className}`}
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.94 }}
-          aria-label={a.label}
-        >
-          {a.emoji}
-          {a.id === 'rooster' && !dawn && (
-            <span className="absolute -right-1 -top-1 text-lg opacity-50">💤</span>
-          )}
-        </motion.button>
-      ))}
+      <motion.button
+        type="button"
+        className="absolute left-1/2 top-[54%] z-30 flex h-44 w-44 -translate-x-1/2 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full bg-amber-950/20 shadow-[0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-[1px] md:h-56 md:w-56"
+        onClick={pokeRooster}
+        whileHover={dawn ? undefined : { scale: 1.03 }}
+        whileTap={dawn ? undefined : { scale: 0.95, rotate: -2 }}
+        animate={{
+          y: dawn ? [-8, -20, -8] : [0, 3, 0],
+          rotate: dawn ? [0, -8, 8, -5, 0] : 0,
+        }}
+        transition={{ duration: dawn ? 0.7 : 2.2, repeat: dawn ? 1 : Infinity, ease: 'easeInOut' }}
+        aria-label="Sleeping rooster"
+      >
+        <span className="absolute inset-x-8 bottom-4 h-5 rounded-full bg-black/30 blur-md" />
+        <span className="relative text-[7rem] leading-none md:text-[9rem]">
+          🐓
+        </span>
+        {!dawn && (
+          <span className="absolute right-8 top-9 rounded-full bg-slate-950/70 px-3 py-1 font-display text-sm font-bold text-white/80">
+            Zzz
+          </span>
+        )}
+      </motion.button>
 
-      {/* 새벽 */}
+      <AnimatePresence>
+        {snore > 0 && !dawn && (
+          <motion.div
+            key={snore}
+            className="pointer-events-none absolute left-[56%] top-[34%] z-50 font-display text-3xl font-black text-white md:text-5xl"
+            initial={{ opacity: 0, y: 18, scale: 0.86 }}
+            animate={{ opacity: [0, 1, 0], y: -42, scale: [0.86, 1.08, 1] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.05 }}
+          >
+            Zzz...
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sliderOpen && !dawn && (
+          <motion.div
+            className="absolute right-[8%] top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-4 rounded-xl border border-white/15 bg-slate-950/72 p-5 shadow-2xl shadow-black/40 backdrop-blur md:right-[14%]"
+            initial={{ opacity: 0, x: 24, scale: 0.92 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 24, scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 25 }}
+          >
+            <div className="font-display text-xs font-bold tracking-[0.18em] text-white/78">
+              COCK-A-DOODLE VOLUME
+            </div>
+            <div
+              ref={trackRef}
+              className="relative h-72 w-16 touch-none rounded-full border border-white/20 bg-black/35 p-2 shadow-inner"
+              onPointerDown={onTrackPointerDown}
+              onPointerMove={onTrackPointerMove}
+              onPointerUp={onTrackPointerUp}
+              onPointerCancel={onTrackPointerUp}
+              aria-label="Rooster volume slider"
+            >
+              <div className="absolute inset-2 overflow-hidden rounded-full bg-slate-900">
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 rounded-full bg-gradient-to-t from-red-500 via-amber-300 to-lime-300"
+                  animate={{ height: `${volume}%` }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 34 }}
+                />
+                {Array.from({ length: 5 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="absolute left-0 right-0 h-px bg-white/18"
+                    style={{ bottom: `${i * 25}%` }}
+                  />
+                ))}
+              </div>
+              <motion.div
+                className="absolute left-1/2 h-9 w-20 -translate-x-1/2 rounded-full border border-white/30 bg-white text-center font-display text-xs font-black leading-9 text-slate-950 shadow-lg"
+                animate={{ bottom: `calc(${volume}% - 18px)` }}
+                transition={{ type: 'spring', stiffness: 500, damping: 34 }}
+              >
+                PULL
+              </motion.div>
+            </div>
+            <div className="font-display text-2xl font-black tabular-nums text-white">
+              {roundedVolume}%
+            </div>
+            <div className="h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
+              <motion.div
+                className="h-full rounded-full bg-red-400"
+                animate={{ width: `${100 - volume}%` }}
+                transition={{ duration: 0.12 }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {dawn && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="pointer-events-none absolute left-1/2 top-[6%] -translate-x-1/2"
+            className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35 }}
           >
-            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-amber-200 to-orange-400 shadow-[0_0_60px_rgba(251,191,36,0.7)] md:h-20 md:w-20" />
+            <motion.div
+              className="font-display text-6xl font-black tracking-[0.08em] text-orange-600 drop-shadow-[0_5px_0_rgba(255,255,255,0.8)] md:text-8xl"
+              animate={{ scale: [0.9, 1.16, 1], rotate: [-4, 4, 0] }}
+              transition={{ duration: 0.5 }}
+            >
+              コケコッコー!!
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
       <motion.div
         className="pointer-events-none absolute inset-0"
-        animate={{ opacity: dawn ? 0 : 0.5 }}
+        animate={{ opacity: dawn ? 0 : 0.55 }}
         transition={{ duration: 0.7 }}
         aria-hidden
       >
-        {Array.from({ length: 30 }, (_, i) => (
+        {Array.from({ length: 40 }, (_, i) => (
           <div
             key={i}
             className="absolute h-0.5 w-0.5 rounded-full bg-white"
             style={{
               left: `${(i * 37 + 5) % 100}%`,
-              top: `${(i * 23 + 3) % 40}%`,
+              top: `${(i * 23 + 3) % 44}%`,
             }}
           />
         ))}

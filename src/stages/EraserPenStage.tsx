@@ -3,336 +3,367 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { motion } from 'framer-motion'
+import { motion, type PanInfo } from 'framer-motion'
 
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const
-const ERASE_RATIO = 0.97
-const BRUSH_RADIUS = 18
-const WRITE_MIN_LENGTH = 90
+const REQUIRED_ERASE = 1
+const HINT_RADIUS = 96
+const ERASE_RADIUS = 38
+const ERASE_STEP = 0.024
 
-type Tool = 'none' | 'eraser' | 'pen'
-
-function getCanvasPoint(
-  canvas: HTMLCanvasElement,
+function pointerAngleDeg(
   clientX: number,
   clientY: number,
-) {
-  const rect = canvas.getBoundingClientRect()
-  const scaleX = canvas.width / rect.width
-  const scaleY = canvas.height / rect.height
-  return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY,
-  }
+  rect: DOMRect,
+): number {
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  const dx = clientX - cx
+  const dy = clientY - cy
+  return (Math.atan2(dx, -dy) * 180) / Math.PI
 }
 
-function measureEraseRatio(ctx: CanvasRenderingContext2D) {
-  const { width, height } = ctx.canvas
-  const data = ctx.getImageData(0, 0, width, height).data
-  let transparent = 0
-  const total = data.length / 4
-  for (let i = 3; i < data.length; i += 4) {
-    if (data[i] < 48) transparent++
-  }
-  return transparent / total
+function normalizeDelta(delta: number) {
+  let d = delta
+  while (d > 180) d -= 360
+  while (d < -180) d += 360
+  return d
+}
+
+function distanceToRect(
+  point: { x: number; y: number },
+  rect: DOMRect,
+) {
+  const dx = Math.max(rect.left - point.x, 0, point.x - rect.right)
+  const dy = Math.max(rect.top - point.y, 0, point.y - rect.bottom)
+  return Math.hypot(dx, dy)
 }
 
 export function EraserPenStage({ onComplete }: { onComplete: () => void }) {
-  const [tool, setTool] = useState<Tool>('none')
+  const roomRef = useRef<HTMLDivElement>(null)
+  const sunRef = useRef<HTMLHeadingElement>(null)
+  const clockRef = useRef<SVGSVGElement>(null)
+  const drawCanvasRef = useRef<HTMLCanvasElement>(null)
+  const eraserRef = useRef<HTMLDivElement>(null)
+  const lastClockAngleRef = useRef<number | null>(null)
+  const clockDraggingRef = useRef(false)
+  const finishedRef = useRef(false)
+  const [clockDeg, setClockDeg] = useState(0)
+  const [eraseProgress, setEraseProgress] = useState(0)
+  const [sunNearby, setSunNearby] = useState(false)
   const [sunErased, setSunErased] = useState(false)
-  const maskRef = useRef<HTMLCanvasElement>(null)
-  const writeRef = useRef<HTMLCanvasElement>(null)
-  const erasingRef = useRef(false)
-  const writingRef = useRef(false)
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null)
-  const writeLenRef = useRef(0)
-  const doneRef = useRef(false)
+  const [flash, setFlash] = useState(false)
+  const [penAwake, setPenAwake] = useState(false)
+  const [monWriting, setMonWriting] = useState(false)
+  const [ending, setEnding] = useState(false)
 
-  const setupCanvas = useCallback((canvas: HTMLCanvasElement, dpr: number) => {
-    const parent = canvas.parentElement
-    if (!parent) return
-    const w = parent.clientWidth
-    const h = parent.clientHeight
-    canvas.width = Math.max(1, w * dpr)
-    canvas.height = Math.max(1, h * dpr)
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
+  const setupCanvas = useCallback(() => {
+    const canvas = drawCanvasRef.current
+    const room = roomRef.current
+    if (!canvas || !room) return
+    const rect = room.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr))
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr))
+    canvas.style.width = `${rect.width}px`
+    canvas.style.height = `${rect.height}px`
+    const ctx = canvas.getContext('2d')
+    ctx?.clearRect(0, 0, canvas.width, canvas.height)
   }, [])
 
-  const initMask = useCallback(() => {
-    const canvas = maskRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const dpr = devicePixelRatio
-    setupCanvas(canvas, dpr)
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.fillStyle = '#e8e4df'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-  }, [setupCanvas])
-
-  const initWrite = useCallback(() => {
-    const canvas = writeRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    setupCanvas(canvas, devicePixelRatio)
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    writeLenRef.current = 0
-  }, [setupCanvas])
-
   useLayoutEffect(() => {
-    initMask()
-    initWrite()
-    const onResize = () => {
-      initMask()
-      if (sunErased) initWrite()
+    setupCanvas()
+    window.addEventListener('resize', setupCanvas)
+    return () => window.removeEventListener('resize', setupCanvas)
+  }, [setupCanvas])
+
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    setMonWriting(true)
+    window.setTimeout(() => setEnding(true), 1800)
+    window.setTimeout(onComplete, 9400)
+  }, [onComplete])
+
+  const eraserCenter = useCallback((fallback: { x: number; y: number }) => {
+    const rect = eraserRef.current?.getBoundingClientRect()
+    if (!rect) return fallback
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
     }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [initMask, initWrite, sunErased])
+  }, [])
 
-  const scratch = useCallback((clientX: number, clientY: number) => {
-    const canvas = maskRef.current
-    if (!canvas || !erasingRef.current) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const dpr = devicePixelRatio
-    const { x, y } = getCanvasPoint(canvas, clientX, clientY)
+  const eraseSunAt = useCallback((point: { x: number; y: number }) => {
+    if (sunErased) return
+    const rect = sunRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const distance = distanceToRect(point, rect)
+    setSunNearby(distance < HINT_RADIUS)
 
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.beginPath()
-    ctx.arc(x, y, BRUSH_RADIUS * dpr, 0, Math.PI * 2)
-    ctx.fill()
-
-    if (lastPointRef.current) {
-      const lp = lastPointRef.current
-      ctx.lineWidth = BRUSH_RADIUS * 2 * dpr
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(lp.x, lp.y)
-      ctx.lineTo(x, y)
-      ctx.stroke()
-    }
-    lastPointRef.current = { x, y }
-
-    if (measureEraseRatio(ctx) >= ERASE_RATIO) {
-      erasingRef.current = false
-      setSunErased(true)
-      setTool('none')
-      initWrite()
-    }
-  }, [initWrite])
-
-  const drawStroke = useCallback(
-    (clientX: number, clientY: number) => {
-      const canvas = writeRef.current
-      if (!canvas || !writingRef.current || doneRef.current) return
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      const dpr = devicePixelRatio
-      const { x, y } = getCanvasPoint(canvas, clientX, clientY)
-
-      ctx.strokeStyle = '#1e293b'
-      ctx.lineWidth = 4.5 * dpr
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-
-      if (lastPointRef.current) {
-        const lp = lastPointRef.current
-        ctx.beginPath()
-        ctx.moveTo(lp.x, lp.y)
-        ctx.lineTo(x, y)
-        ctx.stroke()
-        writeLenRef.current += Math.hypot(x - lp.x, y - lp.y) / dpr
-        if (writeLenRef.current >= WRITE_MIN_LENGTH) {
-          doneRef.current = true
-          writingRef.current = false
-          window.setTimeout(onComplete, 700)
-        }
+    if (distance > ERASE_RADIUS) return
+    setEraseProgress((current) => {
+      const pressure = Math.max(0.22, 1 - distance / ERASE_RADIUS)
+      const next = Math.min(REQUIRED_ERASE, current + ERASE_STEP * pressure)
+      if (next >= REQUIRED_ERASE) {
+        queueMicrotask(() => {
+          setSunErased(true)
+          setSunNearby(false)
+          setFlash(true)
+          setPenAwake(true)
+          window.setTimeout(() => setFlash(false), 460)
+        })
       }
-      lastPointRef.current = { x, y }
+      return next
+    })
+  }, [sunErased])
+
+  const onClockDown = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
+    const rect = clockRef.current?.getBoundingClientRect()
+    if (!rect) return
+    clockDraggingRef.current = true
+    lastClockAngleRef.current = pointerAngleDeg(event.clientX, event.clientY, rect)
+    clockRef.current?.setPointerCapture(event.pointerId)
+  }, [])
+
+  const onClockMove = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!clockDraggingRef.current) return
+    const rect = clockRef.current?.getBoundingClientRect()
+    if (!rect || lastClockAngleRef.current === null) return
+    const angle = pointerAngleDeg(event.clientX, event.clientY, rect)
+    const delta = normalizeDelta(angle - lastClockAngleRef.current)
+    lastClockAngleRef.current = angle
+    setClockDeg((current) => {
+      const raw = current + delta
+      return Math.round(raw / 6) * 6
+    })
+  }, [])
+
+  const onClockUp = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
+    clockDraggingRef.current = false
+    lastClockAngleRef.current = null
+    if (clockRef.current?.hasPointerCapture(event.pointerId)) {
+      clockRef.current.releasePointerCapture(event.pointerId)
+    }
+  }, [])
+
+  const onPenGrab = useCallback(() => {
+    if (!penAwake || finishedRef.current) return
+    finish()
+  }, [finish, penAwake])
+
+  const onEraserDrag = useCallback(
+    (_: MouseEvent | TouchEvent | globalThis.PointerEvent, info: PanInfo) => {
+      eraseSunAt(eraserCenter(info.point))
     },
-    [onComplete],
+    [eraseSunAt, eraserCenter],
   )
+
+  const sunOpacity = Math.max(0, 1 - eraseProgress)
+  const sunClip = `${Math.min(100, eraseProgress * 105)}%`
 
   return (
     <motion.section
-      key="eraser-pen"
+      key="eraser-pen-ending"
+      ref={roomRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="relative flex min-h-[100dvh] w-full overflow-hidden bg-[#c4b8a8]"
+      className="relative h-[100dvh] w-full overflow-hidden bg-[#d9b98f]"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_25%_30%,#ddd6ce,transparent_55%)]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#e8d1ac] via-[#d5aa77] to-[#8b5e3b]" />
+      <div className="absolute inset-x-0 top-0 h-[62%] bg-[radial-gradient(ellipse_70%_60%_at_42%_22%,rgba(255,244,217,0.58),transparent_66%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-[31%] bg-gradient-to-b from-[#94623b] to-[#614027]" />
+      <div className="absolute left-0 top-[61%] h-[2px] w-full bg-[#7b5133]/55" />
 
-      <div className="relative z-10 flex h-[100dvh] w-full">
-        {/* 왼쪽 — 요일 보드 */}
-        <div className="flex w-[42%] min-w-[240px] flex-col border-r border-stone-400/30 bg-[#d6d0c8] shadow-[inset_-8px_0_24px_rgba(0,0,0,0.06)]">
-          <div className="border-b border-stone-400/25 px-6 py-5">
-            <div className="h-2 w-2 rounded-full bg-stone-500/40" />
-          </div>
-          <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-8 md:gap-2 md:px-10">
-            {DAYS.map((day) => {
-              const isSun = day === 'SUN'
-              const isPast = day !== 'SUN'
-
-              return (
-                <div
-                  key={day}
-                  className={`relative flex min-h-[52px] items-center md:min-h-[64px] ${
-                    isSun ? 'z-10' : ''
-                  }`}
-                >
-                  <span
-                    className={`font-display text-3xl font-bold tracking-[0.2em] md:text-4xl ${
-                      isPast
-                        ? 'text-stone-500/45'
-                        : 'text-stone-800/90'
-                    }`}
-                  >
-                    {day}
-                  </span>
-
-                  {isSun && !sunErased && (
-                    <div className="absolute inset-0 -left-2 -right-2">
-                      <canvas
-                        ref={maskRef}
-                        className="absolute inset-0 touch-none"
-                        style={{
-                          cursor: tool === 'eraser' ? 'cell' : 'default',
-                          pointerEvents: tool === 'eraser' ? 'auto' : 'none',
-                        }}
-                        onPointerDown={(e) => {
-                          if (tool !== 'eraser') return
-                          erasingRef.current = true
-                          lastPointRef.current = null
-                          maskRef.current?.setPointerCapture(e.pointerId)
-                          scratch(e.clientX, e.clientY)
-                        }}
-                        onPointerMove={(e) => {
-                          if (!erasingRef.current) return
-                          scratch(e.clientX, e.clientY)
-                        }}
-                        onPointerUp={(e) => {
-                          erasingRef.current = false
-                          lastPointRef.current = null
-                          maskRef.current?.releasePointerCapture(e.pointerId)
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {isSun && sunErased && (
-                    <canvas
-                      ref={writeRef}
-                      className="absolute inset-0 -left-2 -right-2 touch-none"
-                      style={{
-                        cursor: tool === 'pen' ? 'crosshair' : 'default',
-                        pointerEvents: tool === 'pen' ? 'auto' : 'none',
-                      }}
-                      onPointerDown={(e) => {
-                        if (tool !== 'pen') return
-                        writingRef.current = true
-                        lastPointRef.current = null
-                        writeRef.current?.setPointerCapture(e.pointerId)
-                        drawStroke(e.clientX, e.clientY)
-                      }}
-                      onPointerMove={(e) => {
-                        if (!writingRef.current) return
-                        drawStroke(e.clientX, e.clientY)
-                      }}
-                      onPointerUp={(e) => {
-                        writingRef.current = false
-                        lastPointRef.current = null
-                        writeRef.current?.releasePointerCapture(e.pointerId)
-                      }}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* 오른쪽 — 책상 */}
-        <div className="relative flex-1 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#a68b6a] via-[#8b7355] to-[#6d5a45]" />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2240%22 height=%2240%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cpath d=%22M0 20h40M20 0v40%22 stroke=%22%23000%22 stroke-opacity=%220.03%22/%3E%3C/svg%3E')]" />
-
-          {/* 공책 */}
-          <div
-            className="absolute left-[12%] top-[28%] h-44 w-36 -rotate-12 rounded-sm bg-[#fef9ef] shadow-lg md:h-52 md:w-44"
+      <header className="absolute left-0 right-0 top-0 z-50 px-8 py-6 md:px-14 md:py-8">
+        <motion.h2
+          ref={sunRef}
+          className="font-display inline-block text-2xl font-bold tracking-[0.2em] text-white/80 md:text-3xl"
+          animate={{ scale: sunNearby && !sunErased ? 1.16 : 1 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+          style={{ opacity: sunOpacity }}
+        >
+          <span
+            className="inline-block"
             style={{
-              boxShadow: '4px 8px 24px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(0,0,0,0.06)',
+              clipPath: `inset(0 0 0 ${sunClip})`,
             }}
           >
-            <div className="absolute left-0 top-0 h-full w-2 bg-red-300/60" />
-            <div className="absolute inset-4 border-t border-stone-200/80" />
-            <div className="absolute inset-4 top-8 border-t border-stone-200/60" />
-            <div className="absolute inset-4 top-16 border-t border-stone-200/40" />
-          </div>
-
-          {/* 지우개 */}
-          <motion.button
-            type="button"
-            onClick={() => setTool(tool === 'eraser' ? 'none' : 'eraser')}
-            className={`absolute left-[48%] top-[38%] z-20 -rotate-6 transition-transform ${
-              tool === 'eraser' ? 'scale-110 ring-2 ring-white/30' : ''
-            }`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            aria-label="eraser"
-          >
-            <svg viewBox="0 0 80 48" className="h-14 w-24 drop-shadow-md md:h-16 md:w-28">
-              <rect x="4" y="14" width="72" height="28" rx="6" fill="#fda4af" />
-              <rect x="8" y="18" width="64" height="20" rx="4" fill="#fb7185" />
-              <rect x="52" y="8" width="20" height="12" rx="3" fill="#9ca3af" opacity="0.5" />
-            </svg>
-          </motion.button>
-
-          {/* 펜 */}
-          <motion.button
-            type="button"
-            onClick={() => {
-              if (sunErased) setTool(tool === 'pen' ? 'none' : 'pen')
+            SUN
+          </span>
+        </motion.h2>
+        <motion.h2
+          className="font-display pointer-events-none absolute left-8 top-6 inline-block text-2xl font-bold tracking-[0.2em] text-slate-950/90 md:left-14 md:top-8 md:text-3xl"
+          initial={false}
+          animate={{
+            opacity: monWriting ? 1 : 0,
+            scale: monWriting ? [0.96, 1.08, 1] : 0.96,
+            rotate: monWriting ? [-1.5, 0.8, 0] : -1.5,
+          }}
+          transition={{ duration: 0.75, ease: 'easeOut' }}
+          aria-hidden
+        >
+          <motion.span
+            className="inline-block"
+            initial={false}
+            animate={{
+              clipPath: monWriting ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
             }}
-            className={`absolute right-[14%] top-[22%] z-20 rotate-[18deg] transition-opacity ${
-              sunErased ? 'opacity-100' : 'opacity-35'
-            } ${tool === 'pen' ? 'scale-110 ring-2 ring-white/30' : ''}`}
-            whileHover={sunErased ? { scale: 1.05 } : undefined}
-            whileTap={sunErased ? { scale: 0.97 } : undefined}
-            aria-label="pen"
+            transition={{ duration: 1.15, ease: [0.33, 1, 0.68, 1] }}
           >
-            <svg viewBox="0 0 120 24" className="h-8 w-40 drop-shadow-lg md:h-10 md:w-48">
-              <rect x="0" y="8" width="88" height="8" rx="2" fill="#1e3a5f" />
-              <polygon points="88,6 120,12 88,18" fill="#334155" />
-              <rect x="4" y="9" width="20" height="6" rx="1" fill="#475569" />
-            </svg>
-          </motion.button>
-
-          {/* 연필 */}
-          <div
-            className="absolute bottom-[32%] left-[22%] h-3 w-28 rotate-[35deg] rounded-full bg-gradient-to-r from-amber-400 to-amber-600 shadow-md"
-            aria-hidden
+            MON
+          </motion.span>
+          <motion.span
+            className="absolute -bottom-1 left-0 h-1 rounded-full bg-slate-950/75"
+            initial={false}
+            animate={{ width: monWriting ? '100%' : '0%' }}
+            transition={{ delay: 0.35, duration: 0.75, ease: 'easeOut' }}
           />
+        </motion.h2>
+      </header>
 
-          {/* 자 */}
-          <div
-            className="absolute bottom-[28%] right-[20%] h-4 w-36 -rotate-[25deg] rounded-sm bg-yellow-300/90 shadow-md"
-            aria-hidden
-          >
-            <div className="absolute inset-x-2 top-1/2 h-px bg-yellow-600/40" />
-          </div>
+      <motion.div
+        className="pointer-events-none absolute inset-0 z-[70] bg-white"
+        animate={{ opacity: flash ? [0, 0.95, 0] : 0 }}
+        transition={{ duration: 0.45 }}
+        aria-hidden
+      />
 
-          {/* 떨어진 종이 */}
-          <div
-            className="absolute bottom-[18%] right-[8%] h-16 w-20 rotate-12 rounded-sm bg-[#fffef8] shadow-md"
-            aria-hidden
-          />
-        </div>
+      <canvas
+        ref={drawCanvasRef}
+        className="pointer-events-none absolute inset-0 z-30"
+        aria-hidden
+      />
+
+      <div className="absolute left-[6%] top-[20%] z-10 h-[49%] w-[22%] min-w-[150px] max-w-[270px] rounded-t-xl border border-[#6e4428] bg-[#81502f] shadow-2xl shadow-black/18">
+        <div className="absolute inset-3 rounded-t-lg bg-gradient-to-b from-[#9d6640] to-[#6f4328]" />
+        <div className="absolute left-1/2 top-4 h-[calc(100%-2rem)] w-px bg-[#5f3924]" />
+        <div className="absolute left-[42%] top-1/2 h-2 w-2 rounded-full bg-amber-200/80" />
+        <div className="absolute right-[42%] top-1/2 h-2 w-2 rounded-full bg-amber-200/80" />
+        <div className="absolute inset-x-0 bottom-0 h-8 bg-[#5f3924]" />
       </div>
+
+      <motion.svg
+        ref={clockRef}
+        viewBox="0 0 220 220"
+        className="absolute right-[8%] top-[11%] z-40 h-24 w-24 touch-none select-none drop-shadow-xl md:h-32 md:w-32"
+        onPointerDown={onClockDown}
+        onPointerMove={onClockMove}
+        onPointerUp={onClockUp}
+        onPointerCancel={onClockUp}
+        style={{ cursor: 'grab' }}
+        aria-label="壁時計"
+      >
+        <circle cx="110" cy="110" r="102" fill="#f8f3e8" stroke="#7c4a2c" strokeWidth="8" />
+        <circle cx="110" cy="110" r="85" fill="#fffaf0" stroke="#d1a778" strokeWidth="2" />
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = (i * 30 * Math.PI) / 180
+          return (
+            <line
+              key={i}
+              x1={110 + 70 * Math.sin(a)}
+              y1={110 - 70 * Math.cos(a)}
+              x2={110 + 78 * Math.sin(a)}
+              y2={110 - 78 * Math.cos(a)}
+              stroke="#7c4a2c"
+              strokeWidth={i % 3 === 0 ? 4 : 2}
+              strokeLinecap="round"
+            />
+          )
+        })}
+        <motion.g
+          animate={{ rotate: clockDeg }}
+          transition={{ type: 'spring', stiffness: 520, damping: 28 }}
+          style={{ transformOrigin: '110px 110px' }}
+        >
+          <line x1="110" y1="110" x2="110" y2="54" stroke="#263238" strokeWidth="7" strokeLinecap="round" />
+          <line x1="110" y1="110" x2="154" y2="110" stroke="#263238" strokeWidth="5" strokeLinecap="round" />
+        </motion.g>
+        <circle cx="110" cy="110" r="8" fill="#ef4444" />
+      </motion.svg>
+
+      <div className="absolute bottom-[8%] left-1/2 z-20 h-[30%] w-[72%] max-w-4xl -translate-x-1/2 rounded-t-xl bg-gradient-to-b from-[#8f5b34] to-[#6e4428] shadow-2xl shadow-black/30">
+        <div className="absolute inset-x-[-3%] top-0 h-[28%] rounded-xl border border-[#6b4027] bg-gradient-to-b from-[#b77845] to-[#8b542f] shadow-xl" />
+        <div className="absolute bottom-0 left-[8%] h-[74%] w-[6%] bg-[#51311f]" />
+        <div className="absolute bottom-0 right-[8%] h-[74%] w-[6%] bg-[#51311f]" />
+
+        <div className="absolute left-[18%] top-[8%] h-20 w-28 rotate-[-7deg] rounded-sm bg-[#fff8e8] shadow-md md:h-24 md:w-36">
+          <div className="absolute left-0 top-0 h-full w-2 bg-rose-300/70" />
+          <div className="absolute inset-x-4 top-7 h-px bg-stone-300/70" />
+          <div className="absolute inset-x-4 top-12 h-px bg-stone-300/60" />
+          <div className="absolute inset-x-4 top-[4.25rem] h-px bg-stone-300/50" />
+        </div>
+
+        <motion.div
+          ref={eraserRef}
+          drag
+          dragConstraints={roomRef}
+          dragElastic={0.08}
+          onDragStart={(_, info) => eraseSunAt(eraserCenter(info.point))}
+          onDrag={onEraserDrag}
+          className="absolute left-[44%] top-[8%] z-50 touch-none select-none"
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.96 }}
+          aria-label="消しゴム"
+        >
+          <svg viewBox="0 0 110 62" className="h-14 w-24 cursor-grab drop-shadow-lg active:cursor-grabbing md:h-16 md:w-28">
+            <rect x="8" y="18" width="94" height="34" rx="9" fill="#fda4af" />
+            <rect x="13" y="23" width="58" height="24" rx="6" fill="#fb7185" />
+            <path d="M72 18h22c6 0 10 4 10 10v14c0 6-4 10-10 10H72z" fill="#e5e7eb" />
+            <path d="M20 31h39" stroke="#fecdd3" strokeWidth="4" strokeLinecap="round" />
+          </svg>
+        </motion.div>
+
+        <motion.div
+          drag={penAwake}
+          dragConstraints={roomRef}
+          dragElastic={0.04}
+          onPointerDown={onPenGrab}
+          onDragStart={onPenGrab}
+          className={`absolute right-[18%] top-[14%] z-50 touch-none select-none ${penAwake ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+          animate={{
+            opacity: penAwake ? 1 : 0.42,
+            y: penAwake ? [0, -7, 0] : 0,
+            filter: penAwake ? 'drop-shadow(0 0 18px rgba(250,204,21,0.6))' : 'drop-shadow(0 8px 8px rgba(0,0,0,0.22))',
+          }}
+          transition={{ y: { duration: 0.9, repeat: penAwake ? 2 : 0 } }}
+          whileHover={penAwake ? { scale: 1.05 } : undefined}
+          whileTap={penAwake ? { scale: 0.96 } : undefined}
+          aria-label="ペン"
+        >
+          <svg viewBox="0 0 170 36" className="h-8 w-36 rotate-[14deg] md:h-10 md:w-48">
+            <rect x="12" y="11" width="112" height="14" rx="4" fill="#1d4ed8" />
+            <rect x="28" y="13" width="56" height="10" rx="3" fill="#60a5fa" opacity="0.65" />
+            <path d="M124 8l38 10-38 10z" fill="#273449" />
+            <path d="M155 16l12 2-12 2z" fill="#111827" />
+            <rect x="0" y="12" width="22" height="12" rx="4" fill="#0f172a" />
+          </svg>
+        </motion.div>
+
+        <div className="absolute bottom-[24%] left-[34%] h-3 w-28 rotate-[28deg] rounded-full bg-gradient-to-r from-amber-300 to-orange-500 shadow-md" />
+        <div className="absolute bottom-[18%] right-[35%] h-5 w-36 -rotate-[18deg] rounded-sm bg-yellow-300/90 shadow-md">
+          <div className="absolute inset-x-3 top-1/2 h-px bg-yellow-700/40" />
+        </div>
+        <div className="absolute bottom-[13%] right-[9%] h-14 w-20 rotate-12 rounded-sm bg-[#fffaf0] shadow-md" />
+      </div>
+
+      <motion.div
+        className="pointer-events-none absolute inset-0 z-[80] flex items-center justify-center bg-black"
+        initial={false}
+        animate={{ opacity: ending ? 1 : 0 }}
+        transition={{ duration: 0.95 }}
+      >
+        <motion.p
+          className="px-8 text-center font-display text-2xl font-bold tracking-[0.08em] text-white md:text-4xl"
+          animate={{ opacity: ending ? 1 : 0, y: ending ? 0 : 20 }}
+          transition={{ delay: 0.25, duration: 0.7 }}
+        >
+          おめでとうございます... 地獄の月曜日が始まりました。
+        </motion.p>
+      </motion.div>
     </motion.section>
   )
 }

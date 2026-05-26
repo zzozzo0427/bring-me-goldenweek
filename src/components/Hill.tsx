@@ -22,13 +22,13 @@ export function Hill() {
             <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {/* 뒤쪽 언덕 */}
+        {/* Back hill */}
         <path
           fill="url(#hillFar)"
           opacity="0.85"
           d="M0,280 L0,200 Q360,120 720,165 Q1080,210 1440,175 L1440,280 Z"
         />
-        {/* 메인 언덕 */}
+        {/* Main hill */}
         <path
           fill="url(#hillMain)"
           d="M0,280 L0,210 Q480,35 720,95 Q960,155 1440,195 L1440,280 Z"
@@ -37,10 +37,10 @@ export function Hill() {
           fill="url(#hillLight)"
           d="M0,280 L0,210 Q480,35 720,95 Q960,155 1440,195 L1440,280 Z"
         />
-        {/* 잔디 하이라이트 */}
+        {/* Grass highlights */}
         <ellipse cx="720" cy="118" rx="180" ry="22" fill="#bbf7d0" opacity="0.25" />
       </svg>
-      {/* 좌우 나무 실루엣 */}
+      {/* Side tree silhouettes */}
       <svg
         className="absolute bottom-[min(28vh,240px)] left-[8%] h-16 w-10 opacity-70"
         viewBox="0 0 40 64"

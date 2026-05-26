@@ -31,9 +31,9 @@ function flee(
 }
 
 const DECOYS = [
-  { id: 'a', label: '다음 날 →', x: '6%', y: '18%' },
+  { id: 'a', label: '次の日 →', x: '6%', y: '18%' },
   { id: 'b', label: 'Skip', x: '88%', y: '22%' },
-  { id: 'c', label: '확인', x: '12%', y: '82%' },
+  { id: 'c', label: '確認', x: '12%', y: '82%' },
   { id: 'd', label: 'Continue', x: '84%', y: '78%' },
 ]
 
@@ -43,7 +43,10 @@ export function ThursdayStage({ onComplete }: { onComplete: () => void }) {
   const [catches, setCatches] = useState(0)
   const [won, setWon] = useState(false)
   const posRef = useRef(pos)
-  posRef.current = pos
+
+  useEffect(() => {
+    posRef.current = pos
+  }, [pos])
 
   useEffect(() => {
     const arena = arenaRef.current
@@ -87,9 +90,18 @@ export function ThursdayStage({ onComplete }: { onComplete: () => void }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.45 }}
-      className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden bg-[#ececef]"
+      className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden bg-[#efe8dc]"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(251,191,36,0.12),transparent)]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#fbf7ef] via-[#eee4d4] to-[#d6c3a9]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_72%_48%_at_66%_16%,rgba(255,252,244,0.72),transparent_64%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_42%_at_18%_84%,rgba(176,139,96,0.14),transparent_68%)]" />
+      <div className="absolute inset-4 rounded-[2rem] border border-stone-300/35 bg-white/8 shadow-inner md:inset-8" />
+      <div className="absolute left-1/2 top-1/2 h-[min(68vh,620px)] w-[min(86vw,960px)] -translate-x-1/2 -translate-y-1/2 rounded-[2rem] bg-[linear-gradient(90deg,rgba(120,113,108,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(120,113,108,0.08)_1px,transparent_1px)] bg-[size:48px_48px] opacity-70" />
+      <header className="absolute left-0 right-0 top-0 z-40 px-8 py-6 md:px-14 md:py-8">
+        <h2 className="font-display text-2xl font-bold tracking-[0.2em] text-stone-600/80 md:text-3xl">
+          WED
+        </h2>
+      </header>
 
       <div
         ref={arenaRef}
@@ -103,7 +115,7 @@ export function ThursdayStage({ onComplete }: { onComplete: () => void }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 * DECOYS.indexOf(d) }}
             style={{ left: d.x, top: d.y }}
-            className="absolute z-10 rounded-lg border border-zinc-300/80 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm hover:bg-zinc-50"
+            className="absolute z-10 rounded-md border border-stone-300/60 bg-[#fffaf2]/85 px-4 py-2 text-sm font-semibold text-stone-600 shadow-lg shadow-stone-900/8 backdrop-blur-sm transition-colors hover:bg-white"
             onClick={() => {}}
           >
             {d.label}
@@ -119,10 +131,10 @@ export function ThursdayStage({ onComplete }: { onComplete: () => void }) {
           }}
           transition={{ type: 'spring', stiffness: 380, damping: 28 }}
           style={{ x: '-50%', y: '-50%' }}
-          className={`absolute z-30 rounded-2xl px-8 py-4 font-display text-base font-bold shadow-xl md:px-10 md:py-5 md:text-lg ${
+          className={`absolute z-30 rounded-xl px-8 py-4 font-display text-base font-bold shadow-2xl md:px-10 md:py-5 md:text-lg ${
             won
-              ? 'cursor-default bg-emerald-500 text-white shadow-emerald-500/30'
-              : 'cursor-pointer bg-zinc-900 text-white shadow-zinc-900/25 hover:bg-zinc-800'
+              ? 'cursor-default bg-[#7d9277] text-white shadow-[#7d9277]/30'
+              : 'cursor-pointer bg-[#2f302d] text-[#fbf7ef] shadow-stone-950/25 hover:bg-[#46443e]'
           }`}
           onClick={handleCatch}
           disabled={won}
@@ -130,7 +142,23 @@ export function ThursdayStage({ onComplete }: { onComplete: () => void }) {
           {won ? '…' : 'NEXT →'}
         </motion.button>
 
-        <div className="pointer-events-none absolute inset-4 rounded-3xl border-2 border-dashed border-zinc-300/60" />
+        <div className="pointer-events-none absolute inset-4 rounded-2xl border border-stone-300/45 bg-white/10 shadow-inner" />
+      </div>
+
+      <div className="pointer-events-none absolute bottom-8 left-1/2 z-40 w-56 -translate-x-1/2 md:w-72">
+        <div className="mb-2 flex items-center justify-between font-display text-xs font-bold tracking-[0.18em] text-stone-600/80">
+          <span>CAUGHT</span>
+          <span>
+            {Math.min(catches, CATCHES_NEEDED)} / {CATCHES_NEEDED}
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-stone-300/80 shadow-inner">
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-[#2f302d] to-[#7d9277]"
+            animate={{ width: `${(Math.min(catches, CATCHES_NEEDED) / CATCHES_NEEDED) * 100}%` }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+          />
+        </div>
       </div>
 
     </motion.section>
